@@ -69,3 +69,7 @@ RUN if [ ! -f .env ]; then \
         php artisan key:generate --force || \
         echo "Key generation failed (may already be set)"; \
     fi
+
+RUN ls -la /var/www/html/public && \
+    echo "Checking public directory contents:" && \
+    ls -la /var/www/html/public/
