@@ -17,8 +17,11 @@ COPY . /var/www/html
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Add this line before the composer install command
+RUN docker-php-ext-install exif
+
 # Install dependencies
-RUN composer install --optimize-autoloader --no-dev
+RUN composer install --optimize-autoloader --no-dev --ignore-platform-req=ext-exif
 
 # Copy custom Apache config
 COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
