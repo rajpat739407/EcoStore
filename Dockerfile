@@ -43,6 +43,17 @@ RUN { \
 # 7. Copy application files
 COPY . .
 
+# After COPY . . command
+RUN set -ex; \
+    # Create required directories
+    mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache; \
+    # Set ownership
+    chown -R www-data:www-data storage bootstrap/cache; \
+    # Set permissions
+    chmod -R 775 storage bootstrap/cache; \
+    # Verify
+    ls -la storage/framework/sessions;
+
 # 8. Set permissions
 RUN mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache && \
     chown -R www-data:www-data storage bootstrap/cache && \
