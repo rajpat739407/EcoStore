@@ -55,4 +55,13 @@ ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 
 # 10. Generate application key
-RUN php artisan key:generate --force
+# After COPY . . and permission settings
+RUN if [ ! -f .env ]; then \
+        echo "Creating .env file from example"; \
+        cp .env.example .env; \
+        php artisan key:generate --force; \
+    else \
+        echo "Existing .env found, generating key"; \
+        php artisan key:generate --force || \
+        echo "Key generation failed (may already be set)"; \
+    fi
