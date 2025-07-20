@@ -48,15 +48,19 @@ RUN mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache && \
     chown -R www-data:www-data storage bootstrap/cache && \
     chmod -R 775 storage bootstrap/cache
 
+# Verify paths before starting Apache
+RUN echo "Final DocumentRoot: ${APACHE_DOCUMENT_ROOT}" && \
+    ls -ld ${APACHE_DOCUMENT_ROOT} && \
+    apachectl configtest
+
 # 9. Apache configuration
 COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
 RUN a2enmod rewrite
-# Replace your current DocumentRoot setting with:
+# Fix DocumentRoot path (replace existing commands)
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html(/)?!${APACHE_DOCUMENT_ROOT}!g' \
+RUN sed -ri 's!/var/www/html(/?)([^/])!/var/www/html/public/\2!g' \
     /etc/apache2/sites-available/*.conf \
-    /etc/apache2/apache2.conf \
-    /etc/apache2/conf-available/*.conf
+    /etc/apache2/apache2.conf
 
 # 10. Generate application key
 # After COPY . . and permission settings
