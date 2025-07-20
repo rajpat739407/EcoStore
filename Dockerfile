@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# 1. Install system dependencies - all in one RUN command to avoid layer issues
+# 1. Install system dependencies - properly formatted multi-line command
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     libwebp-dev \
-    zlib1g-dev \  # Now properly formatted as part of apt-get
+    zlib1g-dev \
     libicu-dev \
     libpq-dev \
     zip \
@@ -31,7 +31,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
     zip \
     opcache
 
-# 3. Cleanup and Apache setup
+# 3. Apache configuration
 RUN a2enmod rewrite headers && \
     echo "DirectoryIndex index.php index.html" > /etc/apache2/conf-enabled/directory-index.conf
 
@@ -39,9 +39,6 @@ WORKDIR /var/www/html
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY composer.lock composer.json ./
-
-# Add before composer install
-RUN composer dump-autoload --optimize --no-dev
 
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
@@ -53,7 +50,6 @@ RUN chown -R www-data:www-data storage bootstrap/cache && \
 COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
 
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf && \
-    sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 
 RUN php artisan key:generate --force
