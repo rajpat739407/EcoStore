@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install system dependencies
+# 1. Install system dependencies (added missing ones for PHP extensions)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -8,45 +8,66 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \  # For GD with WebP support
+    zlib1g-dev \
+    libicu-dev \   # For intl extension if needed
+    libpq-dev \    # For PostgreSQL (optional)
     zip \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions with PDO fix
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip \
-    && sed -i '/extension=pdo/d' /usr/local/etc/php/conf.d/docker-php-ext-pdo.ini \
-    && a2enmod rewrite
+# 2. Install PHP extensions in separate steps for better error handling
+# First install dependencies for gd
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
 
-# Configure Apache
-RUN echo "DirectoryIndex index.php index.html" > /etc/apache2/conf-enabled/directory-index.conf
+# Then install all extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    opcache
 
-# Set working directory
+# 3. Fix PDO duplicate loading
+RUN rm -f /usr/local/etc/php/conf.d/docker-php-ext-pdo.ini && \
+    docker-php-ext-enable pdo_mysql
+
+# 4. Apache configuration
+RUN a2enmod rewrite headers && \
+    echo "DirectoryIndex index.php index.html" > /etc/apache2/conf-enabled/directory-index.conf
+
+# 5. Set working directory
 WORKDIR /var/www/html
 
-# Copy composer.lock and composer.json first for better caching
-COPY composer.lock composer.json ./
-
-# Install Composer
+# 6. Install Composer (multi-stage to reduce image size)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install dependencies (no dev dependencies for production)
+# 7. Copy composer files first for caching
+COPY composer.lock composer.json ./
+
+# 8. Install dependencies (no dev for production)
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-# Copy the rest of the application
+# 9. Copy application files
 COPY . .
 
-# Set permissions for Laravel
-RUN chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+# 10. Set permissions
+RUN chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
-# Copy custom Apache config
+# 11. Apache config
 COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Set Apache document root to Laravel's public directory
+# 12. Set document root
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf && \
+    sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Generate Laravel key and optimize
-RUN php artisan key:generate --force \
-    && php artisan optimize:clear
+# 13. Generate Laravel key
+RUN php artisan key:generate --force
