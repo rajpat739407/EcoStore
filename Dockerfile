@@ -1,55 +1,32 @@
 FROM php:8.2-apache
 
-# 1. Install system dependencies - properly formatted multi-line command
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libzip-dev \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libwebp-dev \
-    zlib1g-dev \
-    libicu-dev \
-    libpq-dev \
-    zip \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. Configure and install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
-    docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    zip \
-    opcache
-
-# 3. Apache configuration
-RUN a2enmod rewrite headers && \
-    echo "DirectoryIndex index.php index.html" > /etc/apache2/conf-enabled/directory-index.conf
+# [Previous installation commands...]
 
 WORKDIR /var/www/html
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# 1. First copy only composer files for caching
 COPY composer.lock composer.json ./
 
+# 2. Install dependencies
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
+# 3. Copy ALL files
 COPY . .
 
-RUN chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# 4. THIS IS WHERE THE PERMISSION COMMANDS GO (right after COPY . .)
+RUN set -ex; \
+    # Ensure directories exist
+    mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache; \
+    # Set ownership
+    chown -R www-data:www-data storage bootstrap/cache; \
+    # Set permissions
+    chmod -R 775 storage bootstrap/cache; \
+    # Special handling for bootstrap files
+    chmod 644 bootstrap/*.php; \
+    chmod 644 bootstrap/.gitignore;
 
+# [Rest of your Dockerfile...]
 COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
-
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-
 RUN php artisan key:generate --force
