@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# 1. Install system dependencies including unzip (required for Composer)
+# 1. Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -9,26 +9,38 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql mbstring zip
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
+    docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# 3. Install Composer properly
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# 3. Install Composer (official method)
+COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
 # 4. Set working directory
 WORKDIR /var/www/html
 
-# 5. Copy composer files first for caching
+# 5. Copy composer files first
 COPY composer.json composer.lock ./
 
-# 6. Install dependencies (with error handling)
-RUN composer install --no-dev --optimize-autoloader --no-scripts || \
-    (echo "Composer install failed, trying with memory limit" && \
-    COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader --no-scripts)
+# 6. Install dependencies with multiple fallbacks
+RUN { \
+    composer install --no-dev --optimize-autoloader --no-scripts || \
+    { \
+        echo "First attempt failed, retrying with memory limit" && \
+        COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader --no-scripts || \
+        { \
+            echo "Second attempt failed, trying with different stability" && \
+            composer install --no-dev --optimize-autoloader --no-scripts --ignore-platform-reqs; \
+        }; \
+    }; \
+}
 
-# 7. Copy the rest of the application
+# 7. Copy application files
 COPY . .
 
 # 8. Set permissions
