@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: eco-store-laravel
+    runtime: docker
+    repo: https://github.com/rajpat739407/EcoStore
+    plan: free
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    branch: main
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        generateValue: true
