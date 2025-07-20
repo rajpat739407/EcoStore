@@ -1,7 +1,9 @@
 services:
   - type: web
-    name: eco-store-laravel
+    name: ecostore
     runtime: docker
+    buildCommand: docker build -t ecostore .
+    startCommand: docker run -p 10000:80 ecostore
     repo: https://github.com/rajpat739407/EcoStore
     plan: free
     dockerContext: .
