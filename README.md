@@ -86,9 +86,6 @@ php artisan serve
 ### **Product Management**
 ![Products](https://user-images.githubusercontent.com/29488275/90719534-61348f00-e2d4-11ea-8a81-409daee0ad94.png)
 
-### **User Dashboard**
-![User Dashboard](https://user-images.githubusercontent.com/29488275/90719563-7a3d4000-e2d4-11ea-9e6a-56caac13b146.png)
-
 ---
 
 ## 📩 Contact Me
